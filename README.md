@@ -30,7 +30,7 @@ The setup values are the defaults, so you can skip the config if you want, I thi
 
 # Usage
 
-Open the window with the `:TaskCreate` command.
+Open the window with the `:TaskCreateOrEdit` command.
 
 Press `<Cr>`, or whatever you set `handle_input` to, on every line. You can then insert your text in the bar below or select a priority in a submenu. You don't necessarily need to do this for it to work; it will still insert whatever text you set inside, but if you want text like "today," "Monday," "tomorrow," ... to be converted to dates, you need to do it using `handle_input`.
 
