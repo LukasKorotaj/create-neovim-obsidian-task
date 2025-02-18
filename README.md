@@ -1,4 +1,4 @@
-# create-obsidian-task
+# create-neovim-obsidian-task
 
 This is a very simple, almost entirely AI-generated Neovim plugin for [Obsidian tasks](https://github.com/obsidian-tasks-group/obsidian-tasks). What it does is it creates a small window for an easy creation of tasks.
 
