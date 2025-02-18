@@ -12,7 +12,7 @@ Put this somewhere in your Neovim config:
 
 ```lua
 {
-    'LukasKorotaj/create-obsidian-task',
+    'LukasKorotaj/create-neovim-obsidian-task',
 
     config = function()
       require('tasknote').setup {
