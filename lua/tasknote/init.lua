@@ -25,28 +25,74 @@ local defaults = {
 local fields = {
 	{ name = "description", type = "string" },
 	{ name = "priority", type = "select", options = { "none", "lowest", "low", "medium", "high", "highest" } },
+	{ name = "repeat", type = "string" },
 	{ name = "created", type = "date" },
 	{ name = "start", type = "date" },
 	{ name = "scheduled", type = "date" },
 	{ name = "due", type = "date" },
 }
 
--- We'll store the original buffer and window here.
+-- Store state for editing
 TaskNote.origin_buf = nil
 TaskNote.origin_win = nil
+TaskNote.edit_lnum = nil -- Line number being edited (nil for new tasks)
+
+-- Parse existing task line into data table
+function TaskNote.parse_line(line)
+	local data = {}
+
+	-- First extract the entire task part after the global filter
+	local task_part = line:match(TaskNote.config.global_filter .. "%s+(.*)")
+	if not task_part then
+		return data
+	end
+
+	-- Split into description and metadata fields
+	local description, metadata_str = task_part:match("^(.-)%s*([%[].-::.*)$")
+
+	-- If no metadata found, use entire task_part as description
+	if not description then
+		description = task_part
+	end
+
+	-- Clean up description: remove trailing whitespace and any orphaned brackets
+	description = description:gsub("%s+$", ""):gsub("%s*%[%s*$", "")
+	data.description = description ~= "" and description or nil
+
+	-- Extract metadata fields using more precise pattern
+	for key, value in (metadata_str or ""):gmatch("%[([%w_]+):: ([^%]]*)%]") do
+		key = key:lower():gsub("%s+", "")
+		value = value:gsub("^%s*(.-)%s*$", "%1")
+		if value ~= "" then
+			data[key] = value
+		end
+	end
+
+	return data
+end
 
 function TaskNote.create()
-	-- Save the original buffer and window.
+	-- Save original context
 	TaskNote.origin_buf = vim.api.nvim_get_current_buf()
 	TaskNote.origin_win = vim.api.nvim_get_current_win()
+	local current_line = vim.api.nvim_get_current_line()
 
-	-- Create a scratch buffer for the popup.
+	-- Check if we're editing an existing task
+	local is_edit = current_line:find(TaskNote.config.global_filter, 1, true)
+	local edit_data = {}
+	TaskNote.edit_lnum = nil
+
+	if is_edit then
+		TaskNote.edit_lnum = vim.api.nvim_win_get_cursor(0)[1] - 1 -- 0-based
+		edit_data = TaskNote.parse_line(current_line)
+	end
+
+	-- Create and configure buffer
 	local buf = vim.api.nvim_create_buf(false, true)
-
-	-- Set buffer options using nvim_set_option_value().
 	vim.api.nvim_set_option_value("modifiable", true, { buf = buf })
 	vim.api.nvim_set_option_value("readonly", false, { buf = buf })
 
+	-- Create window
 	vim.api.nvim_open_win(buf, true, {
 		relative = "editor",
 		width = defaults.width,
@@ -57,14 +103,18 @@ function TaskNote.create()
 		border = defaults.border,
 	})
 
-	-- Initial content: one line per field.
+	-- Populate initial content
 	local lines = {}
 	for _, field in ipairs(fields) do
-		table.insert(lines, field.name .. ": ")
+		local value = edit_data[field.name] or ""
+		if field.type == "select" then
+			value = value == "none" and "" or value
+		end
+		table.insert(lines, field.name .. ": " .. value)
 	end
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 
-	-- Set key mappings using configured keys.
+	-- Key mappings
 	for _, key in ipairs(TaskNote.config.keymaps.handle_input) do
 		vim.api.nvim_buf_set_keymap(
 			buf,
@@ -99,7 +149,7 @@ function TaskNote.create()
 		)
 	end
 
-	-- Auto-enter insert mode for the description field.
+	-- Auto-enter insert mode
 	vim.api.nvim_create_autocmd("BufEnter", {
 		buffer = buf,
 		callback = function()
@@ -128,7 +178,7 @@ function TaskNote.handle_input()
 		end)
 	elseif field.type == "date" then
 		vim.ui.input({
-			prompt = "Enter date (today/tomorrow/yesterday/Monday/etc): ",
+			prompt = "Enter date (today/tomorrow/yesterday/Monday/mon/tue/wed/etc): ",
 			default = current_line:match(": (.*)") or "",
 		}, function(input)
 			if input then
@@ -151,11 +201,11 @@ function TaskNote.handle_input()
 end
 
 function TaskNote.submit()
-	-- Get the lines from the popup buffer.
+	-- Get the lines from the popup buffer
 	local popup_buf = vim.api.nvim_get_current_buf()
 	local lines = vim.api.nvim_buf_get_lines(popup_buf, 0, -1, false)
 
-	-- Parse each line "field: value".
+	-- Parse each line "field: value"
 	local data = {}
 	for _, line in ipairs(lines) do
 		local key, value = line:match("^(.-):%s*(.*)$")
@@ -164,7 +214,7 @@ function TaskNote.submit()
 		end
 	end
 
-	-- Build the output string using the global filter from config.
+	-- Build the output string
 	local parts = { "- [ ]" }
 	if data["description"] and data["description"] ~= "" then
 		table.insert(parts, TaskNote.config.global_filter .. " " .. data["description"])
@@ -172,9 +222,9 @@ function TaskNote.submit()
 	if data["priority"] and data["priority"] ~= "" then
 		table.insert(parts, string.format("[priority:: %s]", data["priority"]))
 	end
-
-	table.insert(parts, "[repeat:: never]") -- fixed value; adjust as needed.
-
+	if data["repeat"] and data["repeat"] ~= "" then
+		table.insert(parts, string.format("[repeat:: %s]", data["repeat"]))
+	end
 	if data["created"] and data["created"] ~= "" then
 		table.insert(parts, string.format("[created:: %s]", data["created"]))
 	end
@@ -190,20 +240,28 @@ function TaskNote.submit()
 
 	local output = table.concat(parts, "  ")
 
-	-- Switch back to the original window and insert the output.
+	-- Update the original buffer
 	vim.api.nvim_set_current_win(TaskNote.origin_win)
-	local cursor_pos = vim.api.nvim_win_get_cursor(TaskNote.origin_win)
-	vim.api.nvim_buf_set_lines(TaskNote.origin_buf, cursor_pos[1], cursor_pos[1], false, { output })
 
-	-- Close the popup window.
+	if TaskNote.edit_lnum then
+		-- Replace existing line in edit mode
+		vim.api.nvim_buf_set_lines(TaskNote.origin_buf, TaskNote.edit_lnum, TaskNote.edit_lnum + 1, false, { output })
+	else
+		-- Insert new line in create mode
+		local cursor_pos = vim.api.nvim_win_get_cursor(TaskNote.origin_win)
+		vim.api.nvim_buf_set_lines(TaskNote.origin_buf, cursor_pos[1], cursor_pos[1], false, { output })
+	end
+
+	-- Cleanup
+	TaskNote.edit_lnum = nil
 	local popup_win = vim.fn.bufwinid(popup_buf)
 	if popup_win and popup_win ~= -1 then
 		vim.api.nvim_win_close(popup_win, true)
 	end
 end
 
--- Create a command for launching the task creator.
-vim.api.nvim_create_user_command("TaskCreate", function()
+-- Create command for task creation/editing
+vim.api.nvim_create_user_command("TaskCreateOrEdit", function()
 	require("tasknote").create()
 end, {})
 
