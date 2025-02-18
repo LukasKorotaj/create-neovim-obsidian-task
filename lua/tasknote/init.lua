@@ -23,13 +23,13 @@ local defaults = {
 }
 
 local fields = {
-	{ name = "Description", type = "string" },
-	{ name = "Priority", type = "select", options = { "none", "lowest", "low", "medium", "high", "highest" } },
-	{ name = "Repeat", type = "string" },
-	{ name = "Created", type = "date" },
-	{ name = "Start", type = "date" },
-	{ name = "Scheduled", type = "date" },
-	{ name = "Due", type = "date" },
+	{ name = "description", type = "string" },
+	{ name = "priority", type = "select", options = { "none", "lowest", "low", "medium", "high", "highest" } },
+	{ name = "repeat", type = "string" },
+	{ name = "created", type = "date" },
+	{ name = "start", type = "date" },
+	{ name = "scheduled", type = "date" },
+	{ name = "due", type = "date" },
 }
 
 -- Store state for editing
