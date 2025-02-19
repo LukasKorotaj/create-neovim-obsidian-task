@@ -25,7 +25,7 @@ return {
         },
         statuses = {
           { command = 'TaskToggleInProgress', symbol = '/', append = ' ' },
-          { command = 'TaskToggleDone', symbol = 'x', append = '[completed:: today' },
+          { command = 'TaskToggleDone', symbol = 'x', append = '[completion:: today]' },
           { command = 'TaskToggleCancelled', symbol = '-', append = '[cancelled:: today]' },
         },
       }
