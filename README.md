@@ -5,8 +5,9 @@ This is a very simple, Neovim plugin for [Obsidian tasks](https://github.com/obs
 # Installation
 
 First of all, make sure you change Task Format to Dataview in the Obsidian Tasks plugin! Otherwise, this plugin won't work!
+The Global filter should be the same as in the Obsidian Tasks plugin. If you don't use a global filter set the `global_filter` to `''`, as the default is `#task`.
 
-The formatting will still be with emojis inside of Obsidian, so this just changes the Neovim view. I was too lazy to make this work with emojis, sorry.
+The formatting will still be with emojis inside of Obsidian, so this just changes the Neovim view.
 
 Setup for lazy.nvim:
 
@@ -61,3 +62,5 @@ In the config file, you can change the default keybindings and add your own stat
 This doesn't have all of the features of the Tasks plugin for Obsidian. It doesn't have task dependencies or such. This plugin has everything I personally need, so if you want extra features, fork it or make a pull request; that would be nice. If you have any issues with the plugin, feel free to raise an issue on GitHub.
 
 A lot of this plugin was AI-generated, which I am not really proud of, but it works. So if the code/comments seem generated, it's because they mostly are.
+
+I am not planning on adding emoji support.
