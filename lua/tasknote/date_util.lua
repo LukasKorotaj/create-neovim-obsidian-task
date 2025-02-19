@@ -46,12 +46,12 @@ function M.parse_date(input)
 	local sign, num_str = 1, nil
 
 	-- Pattern for "X days ago" format
-	num_str = l:match("^(%d+)%s*d?a?y?s?%s*ago$")
+	num_str = l:match("^(%d+)%s*d%a*%s*ago$")
 	if num_str then
 		sign = -1
 	else
 		-- Pattern for "in X days" or "X days" format
-		num_str = l:match("^in%s*(%d+)%s*d?a?y?s?$") or l:match("^(%d+)%s*d?a?y?s?$")
+		num_str = l:match("^in%s*(%d+)%s*d%a*$") or l:match("^(%d+)%s*d%a*$")
 	end
 
 	if num_str then
@@ -62,6 +62,34 @@ function M.parse_date(input)
 		end
 	end
 
+	-- Now add weeks support
+	local week_sign, week_str = 1, nil
+
+	-- Pattern for "X weeks ago" format
+	week_str = l:match("^(%d+)%s*w%a*%s*ago$")
+	if week_str then
+		week_sign = -1
+	else
+		-- Pattern for "in X weeks" or "X weeks" format (also matches shorthand "2w")
+		week_str = l:match("^in%s*(%d+)%s*w%a*$") or l:match("^(%d+)%s*w%a*$")
+	end
+
+	if week_str then
+		local weeks = tonumber(week_str)
+		if weeks then
+			local offset = week_sign * weeks * 7 * 86400
+			return os.date("%Y-%m-%d", os.time() + offset)
+		end
+	end
+
+	-- Check for singular "a week" cases
+	if l:match("^a%s*week%s*ago$") then
+		return os.date("%Y-%m-%d", os.time() - 7 * 86400)
+	elseif l:match("^in%s*a%s*week$") or l:match("^a%s*week$") then
+		return os.date("%Y-%m-%d", os.time() + 7 * 86400)
+	end
+
 	return nil
 end
+
 return M

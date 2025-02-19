@@ -10,10 +10,57 @@ TaskNote.config = {
 		submit = { "<C-s>" }, -- key(s) for submitting the form
 	},
 }
-
--- Allow users to override config
 function TaskNote.setup(opts)
 	TaskNote.config = vim.tbl_deep_extend("force", TaskNote.config, opts or {})
+
+	-- Create commands for each status with proper closure
+	for _, status in ipairs(TaskNote.config.statuses) do
+		vim.api.nvim_create_user_command(status.command, function()
+			TaskNote.toggle_status(status)
+		end, {})
+	end
+end
+
+function TaskNote.toggle_status(status)
+	local line = vim.api.nvim_get_current_line()
+
+	-- Updated pattern to handle indentation and capture components
+	local pre, symbol, content = line:match("^(%s*%- %[)(.)(%].*)$")
+	if not pre then
+		return
+	end
+
+	local new_line = pre .. status.symbol .. content
+
+	-- Handle metadata appending
+	if status.append and status.append ~= "" then
+		-- Replace date placeholders
+		local processed = status.append:gsub("today", function()
+			return date_util.parse_date("today") or os.date("%Y-%m-%d")
+		end)
+
+		-- Extract metadata key
+		local key = processed:match("%[([^%:]*)::")
+		if key then
+			-- Remove existing metadata with same key
+			new_line = new_line:gsub("%[" .. key .. "::.-%]", "")
+			-- Add new metadata and clean up spaces
+			new_line = new_line .. " " .. processed
+		end
+	end
+
+	-- Capture the indentation (leading whitespace)
+	local indent = new_line:match("^(%s*)") or ""
+	-- Process the rest of the line without affecting the indent
+	local con = new_line:sub(#indent + 1)
+	local processed = con
+		:gsub("%s+", " ") -- Collapse multiple spaces into one
+		:gsub("%s+$", "") -- Remove trailing spaces
+		:gsub("%s*%]%s*", "] ") -- Clean up spaces around closing bracket
+	-- Concatenate the indent with the processed content
+	local final_line = indent .. processed
+
+	vim.api.nvim_set_current_line(final_line)
 end
 
 local defaults = {
@@ -262,7 +309,7 @@ end
 
 -- Create command for task creation/editing
 vim.api.nvim_create_user_command("TaskCreateOrEdit", function()
-	require("tasknote").create()
+	TaskNote.create()
 end, {})
 
 return TaskNote
